@@ -8,10 +8,10 @@ export class ChatbotService {
     this.complianceService = complianceService;
     this.sessions = new Map();
     
-    // Initialize Agent Orchestrator for intelligent routing
+    // Initialize Agent Orchestrator for intelligent routing (includes Ollama)
     this.orchestrator = new AgentOrchestrator(ruleEngine, complianceService);
     
-    // Initialize Grok/OpenAI - prioritize Grok if USE_GROK is true
+    // Initialize Grok/OpenAI as fallback - prioritize Grok if USE_GROK is true
     const useGrok = process.env.USE_GROK === 'true';
     const apiKey = useGrok ? process.env.GROK_API_KEY : process.env.OPENAI_API_KEY;
     
@@ -20,10 +20,10 @@ export class ChatbotService {
         apiKey: apiKey,
         baseURL: useGrok ? (process.env.GROK_API_URL || 'https://api.x.ai/v1') : 'https://api.openai.com/v1'
       });
-      console.log(`🤖 ChatbotService: Using ${useGrok ? 'Grok' : 'OpenAI'} LLM`);
+      console.log(`🤖 ChatbotService: Using ${useGrok ? 'Grok' : 'OpenAI'} LLM as fallback`);
     } else {
       this.openai = null;
-      console.log('🤖 ChatbotService: No API key found - using fallback responses only');
+      console.log('🤖 ChatbotService: Using Ollama for AI responses');
     }
 
     this.conversationFlows = {
