@@ -13,6 +13,7 @@ import chatRoutes from './routes/chat.js';
 import complianceRoutes from './routes/compliance.js';
 import userRoutes from './routes/user.js';
 import stateRoutes from './routes/states.js';
+import ollamaRoutes from './routes/ollama.js';
 
 // Import services
 import { ChatbotService } from './services/ChatbotService.js';
@@ -85,11 +86,15 @@ app.locals.ruleEngine = ruleEngine;
 app.locals.complianceService = complianceService;
 app.locals.logger = logger;
 
+// Make orchestrator available for Ollama testing
+app.set('orchestrator', chatbotService.orchestrator);
+
 // Routes
 app.use('/api/chat', chatRoutes);
 app.use('/api/compliance', complianceRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/states', stateRoutes);
+app.use('/api/ollama', ollamaRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { OllamaService } from './OllamaService.js';
 
 /**
  * Agent Orchestrator - Analyzes user input and routes to specialized agents
@@ -9,7 +10,10 @@ export class AgentOrchestrator {
     this.ruleEngine = ruleEngine;
     this.complianceService = complianceService;
     
-    // Initialize Grok LLM
+    // Initialize Ollama service for local AI
+    this.ollamaService = new OllamaService();
+    
+    // Keep OpenAI/Grok as fallback
     const useGrok = process.env.USE_GROK === 'true';
     const apiKey = useGrok ? process.env.GROK_API_KEY : process.env.OPENAI_API_KEY;
     
@@ -19,10 +23,10 @@ export class AgentOrchestrator {
         baseURL: useGrok ? (process.env.GROK_API_URL || 'https://api.x.ai/v1') : 'https://api.openai.com/v1'
       });
       this.model = process.env.LLM_MODEL || 'grok-2-latest';
-      console.log(`🤖 AgentOrchestrator: Using ${useGrok ? 'Grok' : 'OpenAI'} LLM`);
+      console.log(`🤖 AgentOrchestrator: Using ${useGrok ? 'Grok' : 'OpenAI'} LLM as fallback`);
     } else {
       this.llm = null;
-      console.log('⚠️ AgentOrchestrator: No LLM available');
+      console.log('🤖 AgentOrchestrator: No external LLM API key - using Ollama only');
     }
 
     // Initialize specialized agents
@@ -202,18 +206,26 @@ Respond in JSON format:
     const entities = {};
     const lowerMsg = message.toLowerCase();
     
-    // Business types
+    // Business types - more comprehensive detection
     const businessTypes = {
-      'cafe': 'cafe',
-      'restaurant': 'restaurant',
-      'food': 'restaurant',
-      'retail': 'retail',
-      'store': 'retail',
-      'shop': 'retail',
-      'manufacturing': 'manufacturing',
-      'factory': 'manufacturing',
-      'it': 'it_services',
-      'software': 'it_services'
+      'food': 'Food & Restaurant Business',
+      'restaurant': 'Food & Restaurant Business',
+      'cafe': 'Food & Restaurant Business',
+      'cloud kitchen': 'Food & Restaurant Business',
+      'retail': 'Retail Store',
+      'store': 'Retail Store',
+      'shop': 'Retail Store',
+      'clothing': 'Retail Store',
+      'electronics': 'Retail Store',
+      'service': 'Service Business',
+      'consulting': 'Service Business',
+      'agency': 'Service Business',
+      'freelancing': 'Service Business',
+      'manufacturing': 'Manufacturing Business',
+      'production': 'Manufacturing Business',
+      'factory': 'Manufacturing Business',
+      'e-commerce': 'E-commerce Business',
+      'online': 'E-commerce Business'
     };
     
     for (const [key, value] of Object.entries(businessTypes)) {
@@ -223,11 +235,25 @@ Respond in JSON format:
       }
     }
     
-    // Cities
-    const cities = ['bengaluru', 'bangalore', 'mumbai', 'delhi', 'chennai', 'kolkata', 'hyderabad', 'pune', 'ahmedabad', 'surat'];
-    for (const city of cities) {
-      if (lowerMsg.includes(city)) {
-        entities.city = city.charAt(0).toUpperCase() + city.slice(1);
+    // Cities and states
+    const locations = {
+      'mumbai': 'Mumbai, Maharashtra',
+      'bangalore': 'Bangalore, Karnataka',
+      'bengaluru': 'Bangalore, Karnataka',
+      'delhi': 'Delhi, Delhi',
+      'chennai': 'Chennai, Tamil Nadu',
+      'kolkata': 'Kolkata, West Bengal',
+      'hyderabad': 'Hyderabad, Telangana',
+      'pune': 'Pune, Maharashtra',
+      'ahmedabad': 'Ahmedabad, Gujarat',
+      'surat': 'Surat, Gujarat',
+      'jaipur': 'Jaipur, Rajasthan',
+      'lucknow': 'Lucknow, Uttar Pradesh'
+    };
+    
+    for (const [key, value] of Object.entries(locations)) {
+      if (lowerMsg.includes(key)) {
+        entities.city = value;
         break;
       }
     }
@@ -285,88 +311,228 @@ Respond in JSON format:
       process: async (message, intent, context) => {
         const entities = intent.entities || {};
         const businessProfile = context.businessProfile || {};
-        
-        // Update business profile with extracted entities
+        const conversationHistory = context.conversationHistory || [];
+
+        // Check what information we still need
+        const hasBusinessType = businessProfile.businessType || entities.businessType;
+        const hasLocation = businessProfile.location || businessProfile.city || entities.city;
+        const hasTeamSize = businessProfile.teamSize;
+        const hasInvestment = businessProfile.investmentRange;
+
+        // Update business profile with new entities
         if (entities.businessType) businessProfile.businessType = entities.businessType;
-        if (entities.city) businessProfile.city = entities.city;
-        
-        // Generate contextual response using LLM
-        if (self.llm) {
+        if (entities.city) businessProfile.location = entities.city;
+
+        // Extract team size from message
+        if (message.toLowerCase().includes('solo') || message.toLowerCase().includes('just me')) {
+          businessProfile.teamSize = 'Solo entrepreneur';
+        } else if (message.toLowerCase().includes('2-5') || message.toLowerCase().includes('small team')) {
+          businessProfile.teamSize = 'Small team (2-5 people)';
+        }
+
+        // Extract investment from message
+        if (message.toLowerCase().includes('under') && message.toLowerCase().includes('50')) {
+          businessProfile.investmentRange = 'Under ₹50,000';
+        } else if (message.toLowerCase().includes('50') && message.toLowerCase().includes('2 lakh')) {
+          businessProfile.investmentRange = '₹50,000 - ₹2 Lakhs';
+        }
+
+        // Use Ollama for intelligent responses if available
+        if (self.ollamaService.isReady()) {
           try {
-            const prompt = `You are a friendly business advisor helping someone start their business in India.
+            const aiResponse = await self.ollamaService.generateDiscoveryResponse(message, context);
+            
+            // Still follow the structured flow but with AI-enhanced responses
+            if (!hasBusinessType) {
+              return {
+                message: aiResponse || `Great! Let's get started with your business journey.\n\nWhat type of business are you planning to start?`,
+                type: 'discovery',
+                data: {
+                  businessProfile,
+                  nextStep: 'business_type',
+                  options: [
+                    'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+                    'Retail Store (Clothing, Electronics, etc.)', 
+                    'Service Business (Consulting, Agency)',
+                    'Manufacturing (Small scale production)',
+                    'E-commerce (Online selling)',
+                    'Other'
+                  ]
+                }
+              };
+            }
+            
+            if (!hasLocation) {
+              return {
+                message: aiResponse || `Perfect! ${hasBusinessType} is a great choice.\n\nWhich city are you planning to start your business in?`,
+                type: 'discovery',
+                data: {
+                  businessProfile,
+                  nextStep: 'location',
+                  options: [
+                    'Mumbai, Maharashtra',
+                    'Bangalore, Karnataka', 
+                    'Delhi, Delhi',
+                    'Chennai, Tamil Nadu',
+                    'Pune, Maharashtra',
+                    'Hyderabad, Telangana',
+                    'Other city'
+                  ]
+                }
+              };
+            }
+            
+            if (!hasTeamSize) {
+              return {
+                message: aiResponse || `Excellent! Starting in ${hasLocation} is strategic.\n\nHow many people will be working in your business initially?`,
+                type: 'discovery',
+                data: {
+                  businessProfile,
+                  nextStep: 'team_size',
+                  options: [
+                    'Just me (Solo entrepreneur)',
+                    '2-5 people (Small team)',
+                    '6-10 people (Medium team)', 
+                    '11-20 people (Growing team)',
+                    'More than 20 people'
+                  ]
+                }
+              };
+            }
 
-User said: "${message}"
+            if (!hasInvestment) {
+              return {
+                message: aiResponse || `Got it! Team planning is important.\n\nWhat's your initial investment budget for starting this business?`,
+                type: 'discovery',
+                data: {
+                  businessProfile,
+                  nextStep: 'investment',
+                  options: [
+                    'Under ₹50,000 (Micro business)',
+                    '₹50,000 - ₹2 Lakhs (Small investment)',
+                    '₹2 - ₹10 Lakhs (Medium investment)',
+                    '₹10 - ₹25 Lakhs (High investment)',
+                    'More than ₹25 Lakhs'
+                  ]
+                }
+              };
+            }
 
-Detected business type: ${entities.businessType || 'not specified'}
-Location: ${entities.city || 'not specified'}
-
-Provide a warm, encouraging response that:
-1. Acknowledges their business idea
-2. Asks for any missing information (business type, location, team size, revenue estimate)
-3. Briefly mentions what comes next (compliance requirements, timeline)
-4. Keep it conversational and under 150 words
-
-Be specific to their business type if mentioned.`;
-
-            const completion = await self.llm.chat.completions.create({
-              model: self.model,
-              messages: [
-                { role: 'system', content: 'You are a helpful MSME business advisor in India. Be warm, encouraging, and practical.' },
-                { role: 'user', content: prompt }
-              ],
-              temperature: 0.7,
-              max_tokens: 300
-            });
-
+            // All info collected - AI summary
             return {
-              message: completion.choices[0].message.content,
-              type: 'discovery',
+              message: aiResponse || `🎉 Perfect! I have all the information I need.\n\n**Your Business Summary:**\n• Type: ${hasBusinessType}\n• Location: ${hasLocation}\n• Team: ${hasTeamSize || 'Solo'}\n• Budget: ${hasInvestment || 'Under ₹50,000'}\n\nNow let me analyze the compliance requirements for your business...`,
+              type: 'readiness_check',
               data: {
                 businessProfile,
-                nextStep: 'readiness_check',
-                entities
+                nextStep: 'compliance_analysis'
               }
             };
+            
           } catch (error) {
-            console.error('❌ Discovery agent LLM error:', error.message);
+            console.error('❌ Ollama discovery error:', error.message);
+            // Fall back to structured responses
           }
         }
-        
-        // Fallback response
-        const businessType = entities.businessType || 'business';
-        const location = entities.city || 'your city';
-        
+
+        // Simple conversational flow - ask one question at a time
+        if (!hasBusinessType) {
+          return {
+            message: `Great! Let's get started with your business journey.
+
+What type of business are you planning to start?`,
+            type: 'discovery',
+            data: {
+              businessProfile,
+              nextStep: 'business_type',
+              options: [
+                'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+                'Retail Store (Clothing, Electronics, etc.)', 
+                'Service Business (Consulting, Agency)',
+                'Manufacturing (Small scale production)',
+                'E-commerce (Online selling)',
+                'Other'
+              ]
+            }
+          };
+        }
+
+        if (!hasLocation) {
+          return {
+            message: `Perfect! ${hasBusinessType} is a great choice.
+
+Which city are you planning to start your business in?`,
+            type: 'discovery',
+            data: {
+              businessProfile,
+              nextStep: 'location',
+              options: [
+                'Mumbai, Maharashtra',
+                'Bangalore, Karnataka', 
+                'Delhi, Delhi',
+                'Chennai, Tamil Nadu',
+                'Pune, Maharashtra',
+                'Hyderabad, Telangana',
+                'Other city'
+              ]
+            }
+          };
+        }
+
+        if (!hasTeamSize) {
+          return {
+            message: `Excellent! Starting in ${hasLocation} is strategic.
+
+How many people will be working in your business initially?`,
+            type: 'discovery',
+            data: {
+              businessProfile,
+              nextStep: 'team_size',
+              options: [
+                'Just me (Solo entrepreneur)',
+                '2-5 people (Small team)',
+                '6-10 people (Medium team)', 
+                '11-20 people (Growing team)',
+                'More than 20 people'
+              ]
+            }
+          };
+        }
+
+        if (!hasInvestment) {
+          return {
+            message: `Got it! Team planning is important.
+
+What's your initial investment budget for starting this business?`,
+            type: 'discovery',
+            data: {
+              businessProfile,
+              nextStep: 'investment',
+              options: [
+                'Under ₹50,000 (Micro business)',
+                '₹50,000 - ₹2 Lakhs (Small investment)',
+                '₹2 - ₹10 Lakhs (Medium investment)',
+                '₹10 - ₹25 Lakhs (High investment)',
+                'More than ₹25 Lakhs'
+              ]
+            }
+          };
+        }
+
+        // All basic info collected - move to compliance check
         return {
-        message: `🎉 **Exciting! Starting a ${businessType} in ${location}!**
+          message: `🎉 Perfect! I have all the information I need.
 
-To provide you with accurate compliance guidance, I need a few details:
+**Your Business Summary:**
+• Type: ${hasBusinessType}
+• Location: ${hasLocation}
+• Team: ${hasTeamSize || 'Solo'}
+• Budget: ${hasInvestment || 'Under ₹50,000'}
 
-**📋 Business Information:**
-
-1️⃣ **Business Type**
-   ${entities.businessType ? '✅ ' + businessType : '❓ What type of business? (cafe, restaurant, retail, etc.)'}
-
-2️⃣ **Location**
-   ${entities.city ? '✅ ' + location : '❓ Which city and state?'}
-
-3️⃣ **Team Size**
-   ❓ How many employees will you have?
-
-4️⃣ **Revenue Estimate**
-   ❓ Expected monthly earnings?
-
-**📦 What You'll Get:**
-• Mandatory compliance requirements
-• Step-by-step timeline
-• Detailed cost breakdown
-• Platform onboarding guide (Swiggy, Zomato, etc.)
-
-Please share the missing details so I can create your personalized compliance roadmap!`,
-        type: 'discovery',
-        data: {
-          businessProfile,
-          nextStep: 'readiness_check',
-          entities
+Now let me analyze the compliance requirements for your business...`,
+          type: 'readiness_check',
+          data: {
+            businessProfile,
+            nextStep: 'compliance_analysis'
           }
         };
       }
@@ -390,7 +556,28 @@ Please share the missing details so I can create your personalized compliance ro
           console.log('🔍 RuleEngine evaluated compliance:', complianceData.mandatory.length, 'mandatory items');
         }
         
-        // Generate contextual response using LLM
+        // Use Ollama for intelligent compliance responses
+        if (self.ollamaService.isReady()) {
+          try {
+            const aiResponse = await self.ollamaService.generateComplianceResponse(message, businessProfile);
+            
+            return {
+              message: aiResponse,
+              type: 'compliance_mapping',
+              data: {
+                mandatory: complianceData?.mandatory || [],
+                recommended: complianceData?.recommended || [],
+                businessProfile
+              }
+            };
+            
+          } catch (error) {
+            console.error('❌ Ollama compliance error:', error.message);
+            // Fall back to structured response
+          }
+        }
+        
+        // Generate contextual response using external LLM as fallback
         if (self.llm && complianceData) {
           try {
             const prompt = `You are a compliance expert helping with Indian business regulations.
@@ -504,7 +691,29 @@ Would you like a detailed timeline or cost breakdown?`,
           console.log('📅 RuleEngine generated timeline:', timelineData.totalWeeks, 'weeks');
         }
         
-        // Generate contextual response using LLM
+        // Use Ollama for intelligent timeline responses
+        if (self.ollamaService.isReady()) {
+          try {
+            const aiResponse = await self.ollamaService.generateTimelineResponse(message, businessProfile);
+            
+            return {
+              message: aiResponse,
+              type: 'timeline_generation',
+              data: {
+                timeline: timelineData?.timeline || [],
+                totalCost: timelineData?.totalCost || 15000,
+                totalWeeks: timelineData?.totalWeeks || 8,
+                businessProfile
+              }
+            };
+            
+          } catch (error) {
+            console.error('❌ Ollama timeline error:', error.message);
+            // Fall back to structured response
+          }
+        }
+        
+        // Generate contextual response using external LLM as fallback
         if (self.llm && timelineData) {
           try {
             const prompt = `You are a business setup advisor creating a timeline for an Indian MSME.
@@ -609,7 +818,31 @@ Ready to start with Phase 1?`,
         const entities = intent.entities || {};
         const platform = entities.platform || 'all platforms';
         
-        // Generate contextual response using LLM
+        // Use Ollama for intelligent platform responses
+        if (self.ollamaService.isReady()) {
+          try {
+            const aiResponse = await self.ollamaService.generatePlatformResponse(message, platform);
+            
+            return {
+              message: aiResponse,
+              type: 'platform_onboarding',
+              data: {
+                platform,
+                platforms: {
+                  swiggy: { commission: '15-25%', timeline: '3-7 days' },
+                  zomato: { commission: '18-23%', timeline: '2-5 days' },
+                  amazon: { commission: '5-20%', timeline: '7-14 days' }
+                }
+              }
+            };
+            
+          } catch (error) {
+            console.error('❌ Ollama platform error:', error.message);
+            // Fall back to structured response
+          }
+        }
+        
+        // Generate contextual response using external LLM as fallback
         if (self.llm) {
           try {
             const prompt = `You are an expert on food delivery and e-commerce platforms in India.
@@ -815,7 +1048,57 @@ Would you like me to help you with the specific compliance requirements?`,
     return {
       name: 'GeneralAgent',
       process: async (message, intent, context) => {
-        // Generate contextual response using LLM
+        // Try Ollama first for intelligent responses
+        if (self.ollamaService.isReady()) {
+          try {
+            const aiResponse = await self.ollamaService.generateGeneralResponse(message);
+            
+            // Check if we should start discovery flow
+            const lowerMsg = message.toLowerCase();
+            if (lowerMsg.match(/\b(hello|hi|hey|start|help|begin)\b/)) {
+              return {
+                message: aiResponse || `Hello! I'm your MSME Compliance Navigator.\n\nI'll help you start your business in India with all the right compliance requirements.\n\nWhat type of business are you planning to start?`,
+                type: 'discovery',
+                data: {
+                  businessProfile: {},
+                  nextStep: 'business_type',
+                  options: [
+                    'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+                    'Retail Store (Clothing, Electronics, etc.)', 
+                    'Service Business (Consulting, Agency)',
+                    'Manufacturing (Small scale production)',
+                    'E-commerce (Online selling)',
+                    'Other'
+                  ]
+                }
+              };
+            }
+            
+            // For other queries, provide AI response but guide to discovery
+            return {
+              message: `${aiResponse}\n\nTo provide personalized guidance, let me understand your business better.\n\nWhat type of business are you planning to start?`,
+              type: 'discovery',
+              data: {
+                businessProfile: {},
+                nextStep: 'business_type',
+                options: [
+                  'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+                  'Retail Store (Clothing, Electronics, etc.)', 
+                  'Service Business (Consulting, Agency)',
+                  'Manufacturing (Small scale production)',
+                  'E-commerce (Online selling)',
+                  'Other'
+                ]
+              }
+            };
+            
+          } catch (error) {
+            console.error('❌ Ollama general agent error:', error.message);
+            // Fall back to structured responses
+          }
+        }
+
+        // Generate contextual response using external LLM as fallback
         if (self.llm) {
           try {
             const prompt = `You are a friendly MSME compliance assistant for Indian businesses.
@@ -850,42 +1133,53 @@ Be conversational and encouraging.`;
           }
         }
         
-        // Fallback response
+        // Fallback response - redirect to discovery flow
+        const lowerMsg = message.toLowerCase();
+        
+        // Check if user is greeting or starting conversation
+        if (lowerMsg.match(/\b(hello|hi|hey|start|help|begin)\b/)) {
+          return {
+            message: `Hello! I'm your MSME Compliance Navigator. 
+
+I'll help you start your business in India with all the right compliance requirements.
+
+What type of business are you planning to start?`,
+            type: 'discovery',
+            data: {
+              businessProfile: {},
+              nextStep: 'business_type',
+              options: [
+                'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+                'Retail Store (Clothing, Electronics, etc.)', 
+                'Service Business (Consulting, Agency)',
+                'Manufacturing (Small scale production)',
+                'E-commerce (Online selling)',
+                'Other'
+              ]
+            }
+          };
+        }
+        
+        // For other general queries, redirect to discovery
         return {
-          message: `👋 **Welcome to MSME Compliance Navigator!**
+          message: `I'd love to help you with that! 
 
-I'm here to guide you through starting your business in India.
+First, let me understand your business better so I can provide personalized guidance.
 
-**How I Can Help:**
-
-1️⃣ **Business Setup**
-   • Registration procedures
-   • License requirements
-   • Legal structure advice
-
-2️⃣ **Compliance Management**
-   • GST, FSSAI, Shop Act
-   • State-specific requirements
-   • Industry licenses
-
-3️⃣ **Platform Integration**
-   • Swiggy/Zomato onboarding
-   • Amazon seller setup
-   • E-commerce compliance
-
-4️⃣ **Cost & Timeline**
-   • Setup cost estimates
-   • Implementation timeline
-   • Ongoing expenses
-
-**💡 Try asking:**
-• "What licenses do I need for a cafe in Mumbai?"
-• "How much does GST registration cost?"
-• "What's the timeline to start a retail store?"
-
-What would you like to know?`,
-          type: 'general_response',
-          data: null
+What type of business are you planning to start?`,
+          type: 'discovery',
+          data: {
+            businessProfile: {},
+            nextStep: 'business_type',
+            options: [
+              'Food & Restaurant (Cafe, Restaurant, Cloud Kitchen)',
+              'Retail Store (Clothing, Electronics, etc.)', 
+              'Service Business (Consulting, Agency)',
+              'Manufacturing (Small scale production)',
+              'E-commerce (Online selling)',
+              'Other'
+            ]
+          }
         };
       }
     };
