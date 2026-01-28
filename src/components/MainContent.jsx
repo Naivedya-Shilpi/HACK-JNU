@@ -1,26 +1,54 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import WelcomeCard from './WelcomeCard'
 import ChatInput from './ChatInput'
+import chatService from '../services/chatService'
 
-const MainContent = ({ sidebarCollapsed }) => {
+const MainContent = ({ sidebarCollapsed, userProfile }) => {
   const [showContent, setShowContent] = useState(true)
   const [chatMessages, setChatMessages] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [sessionId, setSessionId] = useState(null)
 
-  const handleChatSubmit = (message, attachments = []) => {
+  useEffect(() => {
+    const initSession = async () => {
+      try {
+        const session = await chatService.resetSession(userProfile);
+        setSessionId(session.sessionId);
+        console.log('✅ Chat session initialized:', session.sessionId);
+      } catch (error) {
+        console.error('❌ Failed to initialize session:', error);
+      }
+    };
+    
+    if (userProfile) {
+      initSession();
+    }
+  }, [userProfile]);
+
+  const handleChatSubmit = async (message, attachments = []) => {
     if (message.trim() || attachments.length > 0) {
-      // Hide content with parallax animation
       setShowContent(false)
-      // Add message to chat
       setChatMessages([...chatMessages, { text: message, sender: 'user', attachments }])
+      setIsLoading(true)
       
-      // Simulate AI response
-      setTimeout(() => {
+      try {
+        const response = await chatService.sendMessage(message, userProfile, sessionId);
         setChatMessages(prev => [...prev, { 
-          text: 'I understand you need help with compliance. Let me assist you with that.', 
+          text: response.message, 
+          sender: 'ai',
+          type: response.type,
+          data: response.data
+        }])
+      } catch (error) {
+        console.error('❌ Backend error:', error);
+        setChatMessages(prev => [...prev, { 
+          text: '⚠️ Backend service unavailable. Please ensure the backend server is running on port 3001.', 
           sender: 'ai' 
         }])
-      }, 1000)
+      } finally {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -127,7 +155,7 @@ const MainContent = ({ sidebarCollapsed }) => {
         </div>
       </div>
 
-      {/* MODIFIED: Removed 'border-t border-slate-200/60 dark:border-slate-800/60' */}
+      {/* Chat Input - always show when chat is active */}
       <div className="sticky bottom-0 z-20 shrink-0 bg-white/70 backdrop-blur-md dark:bg-slate-950/30">
         <div className="max-w-7xl mx-auto px-6 pb-2 pt-1">
           <ChatInput onSubmit={handleChatSubmit} sidebarCollapsed={sidebarCollapsed} />

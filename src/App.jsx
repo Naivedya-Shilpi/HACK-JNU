@@ -86,7 +86,7 @@ function App() {
           />
           
           {activePage === 'home' && (
-            <MainContent sidebarCollapsed={sidebarCollapsed} />
+            <MainContent sidebarCollapsed={sidebarCollapsed} userProfile={userProfile} />
           )}
           {activePage === 'profile' && (
             <ProfilePage 
