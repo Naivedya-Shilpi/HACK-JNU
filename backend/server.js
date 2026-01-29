@@ -14,6 +14,7 @@ import complianceRoutes from './routes/compliance.js';
 import userRoutes from './routes/user.js';
 import stateRoutes from './routes/states.js';
 import ollamaRoutes from './routes/ollama.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 // Import services
 import { ChatbotService } from './services/ChatbotService.js';
@@ -95,6 +96,7 @@ app.use('/api/compliance', complianceRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/states', stateRoutes);
 app.use('/api/ollama', ollamaRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -102,10 +102,20 @@ What type of business are you planning to start?`,
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping, typingMessage]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Auto-scroll when user is typing
+  const handleInputFocus = () => {
+    setTimeout(() => scrollToBottom(), 100);
+  };
+
+  const handleInputChange = () => {
+    // Scroll down when user starts typing
+    setTimeout(() => scrollToBottom(), 50);
   };
 
   // Simulate typing effect
@@ -559,6 +569,8 @@ What type of business are you planning to start?`,
           userProfile={userProfile}
           sessionId={sessionId}
           disabled={isLoading || isTyping}
+          onInputFocus={handleInputFocus}
+          onInputChange={handleInputChange}
         />
         
         {/* Status indicator */}

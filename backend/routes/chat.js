@@ -1,7 +1,11 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { ChatSessionManager } from '../services/ChatSessionManager.js';
 
 const router = express.Router();
+
+// Initialize session manager
+const sessionManager = new ChatSessionManager();
 
 // POST /api/chat/message - Process chat message
 router.post('/message', async (req, res) => {
@@ -19,6 +23,9 @@ router.post('/message', async (req, res) => {
     logger.info(`Processing chat message for session: ${finalSessionId}`);
 
     const response = await chatbotService.processMessage(message, userProfile, finalSessionId);
+
+    // Update session with chat data
+    sessionManager.updateSession(finalSessionId, message, response);
 
     res.json({
       ...response,

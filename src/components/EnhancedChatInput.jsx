@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { FiPlus, FiSend, FiFile, FiX, FiMic } from 'react-icons/fi'
 import chatService from '../services/chatService'
 
-const EnhancedChatInput = ({ onSubmit, userProfile, sessionId, disabled = false }) => {
+const EnhancedChatInput = ({ onSubmit, userProfile, sessionId, disabled = false, onInputFocus, onInputChange }) => {
   const [message, setMessage] = useState('')
   const [attachments, setAttachments] = useState([])
   const [isRecording, setIsRecording] = useState(false)
@@ -184,7 +184,13 @@ const EnhancedChatInput = ({ onSubmit, userProfile, sessionId, disabled = false 
               
               <textarea
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value)
+                  if (onInputChange) onInputChange()
+                }}
+                onFocus={() => {
+                  if (onInputFocus) onInputFocus()
+                }}
                 onKeyPress={handleKeyPress}
                 placeholder={disabled ? "Please wait..." : "Ask about compliance requirements..."}
                 disabled={disabled}
@@ -198,6 +204,7 @@ const EnhancedChatInput = ({ onSubmit, userProfile, sessionId, disabled = false 
                 onInput={(e) => {
                   e.target.style.height = 'auto'
                   e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'
+                  if (onInputChange) onInputChange()
                 }}
               />
               

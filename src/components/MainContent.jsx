@@ -4,7 +4,7 @@ import WelcomeCard from './WelcomeCard'
 import ChatInput from './ChatInput'
 import chatService from '../services/chatService'
 
-const MainContent = ({ sidebarCollapsed, userProfile }) => {
+const MainContent = ({ sidebarCollapsed, userProfile, onSessionUpdate }) => {
   const [showContent, setShowContent] = useState(true)
   const [chatMessages, setChatMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -15,6 +15,7 @@ const MainContent = ({ sidebarCollapsed, userProfile }) => {
       try {
         const session = await chatService.resetSession(userProfile);
         setSessionId(session.sessionId);
+        onSessionUpdate && onSessionUpdate(session.sessionId); // Notify parent
         console.log('✅ Chat session initialized:', session.sessionId);
       } catch (error) {
         console.error('❌ Failed to initialize session:', error);
@@ -40,6 +41,8 @@ const MainContent = ({ sidebarCollapsed, userProfile }) => {
           type: response.type,
           data: response.data
         }])
+        // Update session in parent for dashboard
+        onSessionUpdate && onSessionUpdate(sessionId);
       } catch (error) {
         console.error('❌ Backend error:', error);
         setChatMessages(prev => [...prev, { 

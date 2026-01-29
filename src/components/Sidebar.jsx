@@ -10,8 +10,8 @@ import {
   FiClock
 } from 'react-icons/fi'
 
-// UPDATED: Accept onNavigate prop
-const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate }) => {
+// UPDATED: Accept activePage prop
+const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate, activePage }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const profileMenuRef = useRef(null)
 
@@ -93,14 +93,14 @@ const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate })
         <div className="px-2 space-y-1">
           {menuItems.map((item, index) => {
             const Icon = item.icon
+            const isActive = activePage === item.id
             return (
               <motion.button
                 key={index}
                 whileHover={{ x: 4 }}
-                // UPDATED: Add onClick to handle navigation
-                onClick={() => item.id === 'home' && onNavigate && onNavigate('home')}
+                onClick={() => onNavigate && onNavigate(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
-                  item.id === 'home' // Simple active check
+                  isActive
                     ? 'bg-blue-100 text-blue-600 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700'
                     : 'text-gray-800 hover:bg-gray-200 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}

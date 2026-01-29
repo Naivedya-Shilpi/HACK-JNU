@@ -3,11 +3,17 @@ import Sidebar from './components/Sidebar'
 import MainContent from './components/MainContent'
 import TopBar from './components/TopBar'
 import ProfilePage from './components/ProfilePage'
+import Dashboard from './components/Dashboard'
 
 function App() {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => {
+    // Check if user has a saved theme preference, default to dark if not found
+    const savedTheme = localStorage.getItem('theme')
+    return savedTheme ? savedTheme === 'dark' : true // Default to dark theme
+  })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activePage, setActivePage] = useState('home')
+  const [sessionId, setSessionId] = useState(null) // Add session tracking
   
   const [googleUser, setGoogleUser] = useState(null)
 
@@ -26,11 +32,15 @@ function App() {
   })
 
   useEffect(() => {
+    // Apply theme class to document
     if (isDark) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
+    
+    // Save theme preference to localStorage
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
   }, [isDark])
 
   const handleLogin = (userData) => {
@@ -86,7 +96,24 @@ function App() {
           />
           
           {activePage === 'home' && (
-            <MainContent sidebarCollapsed={sidebarCollapsed} userProfile={userProfile} />
+            <MainContent 
+              sidebarCollapsed={sidebarCollapsed} 
+              userProfile={userProfile} 
+              onSessionUpdate={setSessionId}
+            />
+          )}
+          {activePage === 'dashboard' && (
+            <Dashboard 
+              userProfile={userProfile} 
+              sessionId={sessionId}
+            />
+          )}
+          {activePage === 'chat' && (
+            <MainContent 
+              sidebarCollapsed={sidebarCollapsed} 
+              userProfile={userProfile} 
+              onSessionUpdate={setSessionId}
+            />
           )}
           {activePage === 'profile' && (
             <ProfilePage 

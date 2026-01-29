@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 import { AgentOrchestrator } from './AgentOrchestrator.js';
 
@@ -8,23 +7,10 @@ export class ChatbotService {
     this.complianceService = complianceService;
     this.sessions = new Map();
     
-    // Initialize Agent Orchestrator for intelligent routing (includes Ollama)
+    // Initialize Agent Orchestrator for intelligent routing (Ollama-powered)
     this.orchestrator = new AgentOrchestrator(ruleEngine, complianceService);
     
-    // Initialize Grok/OpenAI as fallback - prioritize Grok if USE_GROK is true
-    const useGrok = process.env.USE_GROK === 'true';
-    const apiKey = useGrok ? process.env.GROK_API_KEY : process.env.OPENAI_API_KEY;
-    
-    if (apiKey) {
-      this.openai = new OpenAI({
-        apiKey: apiKey,
-        baseURL: useGrok ? (process.env.GROK_API_URL || 'https://api.x.ai/v1') : 'https://api.openai.com/v1'
-      });
-      console.log(`🤖 ChatbotService: Using ${useGrok ? 'Grok' : 'OpenAI'} LLM as fallback`);
-    } else {
-      this.openai = null;
-      console.log('🤖 ChatbotService: Using Ollama for AI responses');
-    }
+    console.log('🤖 ChatbotService: Using Ollama for all AI responses');
 
     this.conversationFlows = {
       DISCOVERY: 'discovery',
@@ -339,30 +325,22 @@ export class ChatbotService {
   }
 
   async generateAIExplanation(type, data) {
-    // Use Grok LLM if available, otherwise fallback
-    if (!this.openai) {
-      console.log('🤖 No LLM available - Using fallback response for type:', type);
-      return this.getFallbackResponse(type, data);
-    }
-
+    // Use Ollama through orchestrator for all AI responses
     try {
       const systemPrompt = this.getSystemPrompt(type);
       const userPrompt = this.getUserPrompt(type, data);
 
-      const completion = await this.openai.chat.completions.create({
-        model: process.env.LLM_MODEL || 'grok-2-latest',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 800
-      });
+      // Use orchestrator's Ollama service for consistency
+      const response = await this.orchestrator.ollamaService.generateResponse(
+        userPrompt,
+        systemPrompt,
+        { temperature: 0.7 }
+      );
 
-      return completion.choices[0].message.content;
+      return response;
 
     } catch (error) {
-      console.error('❌ Grok API error:', error.message);
+      console.error('❌ Ollama explanation error:', error.message);
       return this.getFallbackResponse(type, data);
     }
   }
