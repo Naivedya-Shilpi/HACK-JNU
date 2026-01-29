@@ -9,11 +9,20 @@ import {
   FiLayout,
   FiClock
 } from 'react-icons/fi'
+import { useChatContext } from '../context/ChatContext'
 
 // UPDATED: Accept activePage prop
 const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate, activePage }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const profileMenuRef = useRef(null)
+
+  // Get real chat data from ChatContext
+  const { chatList, loadChat, activeChatId, fetchChatList } = useChatContext()
+
+  // Fetch chat list on component mount
+  useEffect(() => {
+    fetchChatList()
+  }, [])
 
   const menuItems = [
     // Added 'id' to identify pages easier
@@ -22,16 +31,44 @@ const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate, a
     { icon: FiMessageSquare, label: 'New Chat', id: 'chat' },
   ]
 
-  const recentActivities = {
-    'Today': [
-      'GST Return Filing Query',
-      'Compliance Calendar Request',
-      'MSME Registration Help'
-    ],
-    'Yesterday': [
-      'TDS Form Auto-fill Request',
-      'Upcoming Deadlines Check'
-    ]
+  // Group chats by time periods (same logic as ChatSidebar)
+  const groupChatsByTime = () => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    const grouped = {
+      today: [],
+      yesterday: [],
+      lastWeek: [],
+      older: []
+    }
+
+    chatList.forEach(chat => {
+      const chatDate = new Date(chat.updatedAt)
+      
+      if (chatDate >= today) {
+        grouped.today.push(chat)
+      } else if (chatDate >= yesterday) {
+        grouped.yesterday.push(chat)
+      } else if (chatDate >= lastWeek) {
+        grouped.lastWeek.push(chat)
+      } else {
+        grouped.older.push(chat)
+      }
+    })
+
+    return grouped
+  }
+
+  const groupedChats = groupChatsByTime()
+
+  const handleChatClick = (chatId) => {
+    loadChat(chatId)
+    if (onNavigate) {
+      onNavigate('home') // Navigate to home where chat will be displayed
+    }
   }
 
   // Close profile menu when clicking outside
@@ -122,24 +159,59 @@ const Sidebar = ({ collapsed, onToggle, onViewProfile, googleUser, onNavigate, a
               </h3>
             </div>
             <div className="space-y-4">
-              {Object.entries(recentActivities).map(([day, activities]) => (
-                <div key={day}>
-                  <h3 className="text-gray-600 dark:text-slate-400 text-xs font-medium mb-2 px-2">
-                    {day}
-                  </h3>
-                  <div className="space-y-1">
-                    {activities.map((activity, idx) => (
-                      <motion.button
-                        key={idx}
-                        whileHover={{ x: 4 }}
-                        className="w-full text-left px-2 py-1.5 text-sm text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-slate-800 rounded transition-all truncate"
-                      >
-                        {activity}
-                      </motion.button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {chatList.length === 0 ? (
+                <p className="text-gray-500 dark:text-slate-400 text-sm px-2">No chats yet</p>
+              ) : (
+                <>
+                  {groupedChats.today.length > 0 && (
+                    <div>
+                      <h3 className="text-gray-600 dark:text-slate-400 text-xs font-medium mb-2 px-2">
+                        Today
+                      </h3>
+                      <div className="space-y-1">
+                        {groupedChats.today.slice(0, 3).map((chat) => (
+                          <motion.button
+                            key={chat.id}
+                            whileHover={{ x: 4 }}
+                            onClick={() => handleChatClick(chat.id)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded transition-all truncate ${
+                              activeChatId === chat.id 
+                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                : 'text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            {chat.title}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {groupedChats.yesterday.length > 0 && (
+                    <div>
+                      <h3 className="text-gray-600 dark:text-slate-400 text-xs font-medium mb-2 px-2">
+                        Yesterday
+                      </h3>
+                      <div className="space-y-1">
+                        {groupedChats.yesterday.slice(0, 2).map((chat) => (
+                          <motion.button
+                            key={chat.id}
+                            whileHover={{ x: 4 }}
+                            onClick={() => handleChatClick(chat.id)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded transition-all truncate ${
+                              activeChatId === chat.id 
+                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                : 'text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            {chat.title}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

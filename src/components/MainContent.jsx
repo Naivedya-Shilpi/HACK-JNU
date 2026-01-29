@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import WelcomeCard from './WelcomeCard'
 import ChatInput from './ChatInput'
@@ -9,6 +10,10 @@ const MainContent = ({ sidebarCollapsed, userProfile, onSessionUpdate }) => {
   const [chatMessages, setChatMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
+  const location = useLocation()
+  
+  // Check if current route is Home page (should hide chat input)
+  const isHomePage = location.pathname === '/'
 
   useEffect(() => {
     const initSession = async () => {
@@ -158,12 +163,14 @@ const MainContent = ({ sidebarCollapsed, userProfile, onSessionUpdate }) => {
         </div>
       </div>
 
-      {/* Chat Input - always show when chat is active */}
-      <div className="sticky bottom-0 z-20 shrink-0 bg-white/70 backdrop-blur-md dark:bg-slate-950/30">
-        <div className="max-w-7xl mx-auto px-6 pb-2 pt-1">
-          <ChatInput onSubmit={handleChatSubmit} sidebarCollapsed={sidebarCollapsed} />
+      {/* Chat Input - only show when NOT on Home page */}
+      {!isHomePage && (
+        <div className="sticky bottom-0 z-20 shrink-0 bg-white/70 backdrop-blur-md dark:bg-slate-950/30">
+          <div className="max-w-7xl mx-auto px-6 pb-2 pt-1">
+            <ChatInput onSubmit={handleChatSubmit} sidebarCollapsed={sidebarCollapsed} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

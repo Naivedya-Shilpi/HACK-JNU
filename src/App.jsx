@@ -97,24 +97,25 @@ function App() {
   }
 
   return (
-    <div className={`min-h-screen ${isDark ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar 
-          collapsed={sidebarCollapsed} 
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onViewProfile={handleViewProfile}
-          googleUser={googleUser} 
-          onNavigate={handleNavigate} // UPDATED: Pass navigation handler
-          activePage={activePage}     // Optional: Pass active state to highlight button
-        />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar 
-            isDark={isDark} 
-            onThemeToggle={() => setIsDark(!isDark)} 
-            googleUser={googleUser}
-            onLoginSuccess={handleLogin}
-            onLogout={handleLogout}
+    <ChatContextProvider>
+      <div className={`min-h-screen ${isDark ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar 
+            collapsed={sidebarCollapsed} 
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onViewProfile={handleViewProfile}
+            googleUser={googleUser} 
+            onNavigate={handleNavigate} // UPDATED: Pass navigation handler
+            activePage={activePage}     // Optional: Pass active state to highlight button
           />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <TopBar 
+              isDark={isDark} 
+              onThemeToggle={() => setIsDark(!isDark)} 
+              googleUser={googleUser}
+              onLoginSuccess={handleLogin}
+              onLogout={handleLogout}
+            />
           
           <Routes>
             <Route 
@@ -130,12 +131,10 @@ function App() {
             <Route 
               path="/chat" 
               element={
-                <ChatContextProvider>
-                  <div className="relative h-screen overflow-hidden">
-                    <ChatSidebar />
-                    <ChatGPTInterface userProfile={userProfile} />
-                  </div>
-                </ChatContextProvider>
+                <div className="relative h-screen overflow-hidden">
+                  <ChatSidebar />
+                  <ChatGPTInterface userProfile={userProfile} />
+                </div>
               } 
             />
             <Route 
@@ -184,6 +183,7 @@ function App() {
         </div>
       </div>
     </div>
+    </ChatContextProvider>
   )
 }
 
