@@ -16,6 +16,7 @@ import userRoutes from './routes/user.js';
 import stateRoutes from './routes/states.js';
 import ollamaRoutes from './routes/ollama.js';
 import dashboardRoutes from './routes/dashboard.js';
+import fileRoutes from './routes/files.js';
 
 // Import services
 import { ChatbotService } from './services/ChatbotService.js';
@@ -99,6 +100,17 @@ app.use('/api/user', userRoutes);
 app.use('/api/states', stateRoutes);
 app.use('/api/ollama', ollamaRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/files', fileRoutes);
+
+// Simple health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Server is running', port: process.env.PORT || 3002 });
+});
+
+// Simple test endpoint
+app.get('/test', (req, res) => {
+  res.json({ message: 'Test endpoint working' });
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -158,12 +170,15 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
-server.listen(PORT, () => {
+server.listen(PORT, 'localhost', () => {
   logger.info(`🚀 MSME Compliance Backend running on port ${PORT}`);
   logger.info(`📡 Socket.IO server ready for real-time chat`);
   logger.info(`🤖 AI Chatbot service initialized`);
+  
+  // Test server binding
+  console.log(`✅ Server is listening on http://localhost:${PORT}`);
 });
 
 export default app;

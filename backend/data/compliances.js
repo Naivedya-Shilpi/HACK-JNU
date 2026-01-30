@@ -87,6 +87,114 @@ export const COMPLIANCE_DATABASE = {
       "authority": "State Government",
       "validity": "Annual",
       "cost": "Varies by state"
+    },
+    "IMPORT_EXPORT_CODE": {
+      "id": "IEC",
+      "name": "Import Export Code",
+      "category": "trade",
+      "mandatory": false,
+      "applicableIf": {
+        "businessType": ["import", "export", "trading"]
+      },
+      "documents": ["PAN Card", "Bank Certificate", "Digital Signature"],
+      "authority": "Directorate General of Foreign Trade",
+      "validity": "Permanent",
+      "cost": 500,
+      "timeline": "15 days"
+    },
+    "DRUG_LICENSE": {
+      "id": "DRUG_LICENSE",
+      "name": "Drug License",
+      "category": "pharmaceutical",
+      "mandatory": true,
+      "applicableIf": {
+        "businessType": ["pharmacy", "pharmaceutical", "medical"]
+      },
+      "documents": ["Form 20B", "Form 21B", "Rent Agreement", "NOC"],
+      "authority": "State Drug Control Administration",
+      "validity": "5 years",
+      "cost": { "manufacturing": 10000, "retail": 2000 },
+      "timeline": "30-60 days"
+    },
+    "POLLUTION_CLEARANCE": {
+      "id": "PCB",
+      "name": "Pollution Control Board Clearance",
+      "category": "environment",
+      "mandatory": true,
+      "applicableIf": {
+        "businessType": ["manufacturing", "chemical", "textile"]
+      },
+      "documents": ["Application Form", "Project Report", "Land Documents"],
+      "authority": "State Pollution Control Board",
+      "validity": "5 years",
+      "cost": 25000,
+      "timeline": "60-90 days"
+    },
+    "FIRE_SAFETY": {
+      "id": "FIRE_NOC",
+      "name": "Fire Safety Certificate",
+      "category": "safety",
+      "mandatory": true,
+      "applicableIf": {
+        "businessArea": { "greaterThan": 500 }
+      },
+      "documents": ["Building Plan", "Fire Safety Plan", "NOC Application"],
+      "authority": "Fire Department",
+      "validity": "1 year",
+      "cost": 5000,
+      "timeline": "30 days"
+    },
+    "LABOR_LICENSE": {
+      "id": "LABOR_LICENSE",
+      "name": "Labour License",
+      "category": "labor",
+      "mandatory": true,
+      "applicableIf": {
+        "employees": { "greaterThanOrEqual": 20 }
+      },
+      "documents": ["Application Form", "Employee List", "Wage Register"],
+      "authority": "Labour Department",
+      "validity": "5 years",
+      "cost": 1000,
+      "timeline": "30 days"
+    },
+    "EXCISE_LICENSE": {
+      "id": "EXCISE",
+      "name": "Excise License",
+      "category": "excise",
+      "mandatory": true,
+      "applicableIf": {
+        "businessType": ["liquor", "tobacco", "petroleum"]
+      },
+      "documents": ["Application Form", "NOC", "Bank Guarantee"],
+      "authority": "Excise Department",
+      "validity": "1 year",
+      "cost": 50000,
+      "timeline": "90 days"
+    },
+    "TRADEMARK": {
+      "id": "TRADEMARK",
+      "name": "Trademark Registration",
+      "category": "intellectual_property",
+      "mandatory": false,
+      "benefits": ["Brand Protection", "Legal Rights", "Commercial Value"],
+      "documents": ["TM Application", "Logo/Mark", "Power of Attorney"],
+      "authority": "Controller General of Patents",
+      "validity": "10 years",
+      "cost": 4500,
+      "timeline": "18-24 months"
+    },
+    "STARTUP_INDIA": {
+      "id": "STARTUP_INDIA",
+      "name": "Startup India Recognition",
+      "category": "startup",
+      "mandatory": false,
+      "benefits": ["Tax Exemption", "Fast Track Patent", "Self Certification"],
+      "documents": ["Incorporation Certificate", "Business Plan", "Funding Details"],
+      "authority": "Department for Promotion of Industry",
+      "validity": "Permanent",
+      "cost": 0,
+      "timeline": "30 days"
     }
   },
   "stateSpecific": {

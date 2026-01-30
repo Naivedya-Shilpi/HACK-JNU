@@ -4,7 +4,7 @@ class ChatService {
   constructor() {
     this.socket = null;
     this.sessionId = null;
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
     this.isConnected = false;
   }
 

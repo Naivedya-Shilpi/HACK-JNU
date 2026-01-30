@@ -23,7 +23,7 @@ export const ChatContextProvider = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   // API base URL
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
   /**
    * Fetch user's chat list for sidebar
@@ -68,9 +68,9 @@ export const ChatContextProvider = ({ children }) => {
   }
 
   /**
-   * Send message to current or new chat
+   * Send message to current or new chat with optional file attachments
    */
-  const sendMessage = async (messageContent, userProfile = {}, userIntent = null) => {
+  const sendMessage = async (messageContent, userProfile = {}, userIntent = null, attachments = []) => {
     try {
       setIsLoading(true)
       
@@ -79,26 +79,63 @@ export const ChatContextProvider = ({ children }) => {
         id: `temp_${Date.now()}`,
         role: 'user',
         content: messageContent,
-        timestamp: new Date()
+        timestamp: new Date(),
+        attachments: attachments.length > 0 ? attachments.map(att => ({
+          name: att.name,
+          type: att.docType || 'Document',
+          size: att.size
+        })) : undefined
       }
       setMessages(prev => [...prev, userMessage])
 
-      // Send to API
-      const response = await fetch(`${API_BASE}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          chatId: activeChatId, // null for new chat
-          message: messageContent,
-          userProfile,
-          userIntent
-        })
-      })
+      let response, data
 
-      const data = await response.json()
+      // Handle file uploads
+      if (attachments && attachments.length > 0) {
+        // Create FormData for file upload
+        const formData = new FormData()
+        
+        // Add files
+        attachments.forEach(attachment => {
+          formData.append('documents', attachment.file)
+        })
+        
+        // Add other data
+        formData.append('message', messageContent)
+        formData.append('userId', userId)
+        formData.append('chatId', activeChatId || '')
+        formData.append('userProfile', JSON.stringify(userProfile))
+        formData.append('userIntent', userIntent || 'document_analysis')
+
+        // Send with files
+        response = await fetch(`${API_BASE}/api/files/chat-upload`, {
+          method: 'POST',
+          body: formData
+        })
+        
+        data = await response.json()
+        
+        if (data.success && data.chatResponse) {
+          data = data.chatResponse // Use the chat response from the file upload
+        }
+      } else {
+        // Send regular text message
+        response = await fetch(`${API_BASE}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            chatId: activeChatId, // null for new chat
+            message: messageContent,
+            userProfile,
+            userIntent
+          })
+        })
+        
+        data = await response.json()
+      }
       
       if (data.success) {
         // Update active chat ID if this was a new chat
